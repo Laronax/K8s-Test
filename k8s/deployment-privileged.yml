@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pentest-privileged
+  namespace: pentest
+  labels:
+    app: pentest-webshell
+    scenario: privileged-escape
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pentest-webshell
+      scenario: privileged-escape
+  template:
+    metadata:
+      labels:
+        app: pentest-webshell
+        scenario: privileged-escape
+    spec:
+      serviceAccountName: pentest-sa
+      hostPID: true
+      hostNetwork: true
+      containers:
+        - name: webshell
+          image: pentest-webshell:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: WEBSHELL_AES_KEY
+              value: "a3f1b9c4d7e2f058619a4b7c8d0e1f2a3b4c5d6e7f80910a1b2c3d4e5f607180"
+          securityContext:
+            privileged: true
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "100m"
+              memory: "128Mi"

